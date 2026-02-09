@@ -1,17 +1,19 @@
 import torch
+from jaxtyping import Float
 
+from .logexp import so3_exp_map
 from ..data import Subject
 from ..drr import render
-from ..geometry import transform_point, so3_exp_map
+from ..geometry import transform_point
 
 
 class Registration(torch.nn.Module):
     def __init__(
         self,
         subject: Subject,
-        rt_inv: torch.Tensor,
-        k_inv: torch.Tensor,
-        sdd: torch.Tensor,
+        rt_inv: Float[torch.Tensor, "1 4 4"],
+        k_inv: Float[torch.Tensor, "1 3 3"],
+        sdd: Float[torch.Tensor, "1"],
         height: int,
         width: int,
         eps: float = 1e-8,
@@ -35,7 +37,7 @@ class Registration(torch.nn.Module):
         self._rot = torch.nn.Parameter(eps * torch.randn(1, 3, device=c.device))
         self._xyz = torch.nn.Parameter(eps * torch.randn(1, 3, device=c.device))
 
-    def forward(self):
+    def forward(self) -> Float[torch.Tensor, "1 C H W"]:
         return render(
             self.subject,
             self.k_inv,
@@ -46,7 +48,7 @@ class Registration(torch.nn.Module):
         )
 
     @property
-    def pose(self):
+    def pose(self) -> Float[torch.Tensor, "1 4 4"]:
         R = so3_exp_map(self._rot)
         t = torch.einsum("bij,bj->bi", R, self._xyz)
         T = torch.eye(4, device=self._rot.device)[None]
