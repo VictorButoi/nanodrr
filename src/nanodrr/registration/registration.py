@@ -3,7 +3,7 @@ from jaxtyping import Float
 
 from ..data import Subject
 from ..drr import render
-from ..geometry import convert
+from ..geometry import convert, transform_point
 
 
 class Registration(torch.nn.Module):
@@ -22,7 +22,6 @@ class Registration(torch.nn.Module):
         width: Output image width in pixels.
         eps: Small constant for numerical stability.
     """
-
     def __init__(
         self,
         subject: Subject,
@@ -41,16 +40,22 @@ class Registration(torch.nn.Module):
         self.height = height
         self.width = width
 
-        # Initialize the perturbations
-        B = len(self.rt_inv)
-        self._rot = torch.nn.Parameter(eps * torch.randn(B, 3, device=c.device))
-        self._xyz = torch.nn.Parameter(eps * torch.randn(B, 3, device=c.device))
+        # Parameterize the perturbation about the isocenter rather than the world origin
+        c = transform_point(rt_inv.inverse(), subject.isocenter[None])
+        self.pivot = torch.eye(4, device=c.device, dtype=c.dtype)[None]
+        self.pivot_inv = torch.eye(4, device=c.device, dtype=c.dtype)[None]
+        self.pivot[:, :3, 3] = c
+        self.pivot_inv[:, :3, 3] = -c
+
+        # Parameterization of the perturbation
+        self._rot = torch.nn.Parameter(eps * torch.randn(1, 3, device=c.device))
+        self._xyz = torch.nn.Parameter(eps * torch.randn(1, 3, device=c.device))
 
     def forward(self) -> Float[torch.Tensor, "B C H W"]:
         return render(
             self.subject,
             self.k_inv,
-            self.pose @ self.rt_inv,
+            self.rt_inv @ self.pose,
             self.sdd,
             self.height,
             self.width,
@@ -58,4 +63,5 @@ class Registration(torch.nn.Module):
 
     @property
     def pose(self) -> Float[torch.Tensor, "B 4 4"]:
-        return convert(self._rot, self._xyz, "so3_log")
+        T = convert(self._rot, self._xyz, "so3_log")
+        return self.pivot @ T @ self.pivot_inv
