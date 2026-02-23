@@ -14,3 +14,10 @@ wheels/
 
 # Data
 *.nii.gz
+
+# Docs build files
+site/
+docs/tutorials/
+
+# macOS internals
+.DS_Store
