@@ -45,6 +45,9 @@ ignore = [
     "F821",  # Forward annotation false positive from jaxtyping
 ]
 
+[tool.ty.src]
+include = ["src"]
+
 [dependency-groups]
 benchmark = [
     "pandas>=2.3.3",
@@ -53,6 +56,7 @@ benchmark = [
 dev = [
     "prek>=0.3.2",
     "pytest>=9.0.2",
+    "ty>=0.0.21",
 ]
 docs = [
     "black>=26.1.0",
